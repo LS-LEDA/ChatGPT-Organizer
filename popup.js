@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const tags = document.querySelector("#addTag");
   tags.addEventListener("click", addTag);
   updateTagsList();
+  updateTagsFilters();
 
   const btnClearAll = document.querySelector("#btn-clearAll");
   btnClearAll.addEventListener("click", () => {
@@ -37,6 +38,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   btnAbout.addEventListener("click", () => {
     alert("About OpenAi ChatGPT Tagging Extension");
   });
+
+  // Filters
+  const filterButton = document.querySelector("#btn-filter-title");
+  filterButton.addEventListener("click", refreshLists);
+
+  const clearFilterTitle = document.querySelector("#clear-filter-title");
+  clearFilterTitle.addEventListener("click", () => {
+    document.querySelector("#filter-title").value = "";
+    refreshLists();
+  });
 });
 
 async function getActiveTabURL() {
@@ -48,12 +59,17 @@ async function getActiveTabURL() {
 
 async function refreshLists() {
   const activeTab = await getActiveTabURL();
+  const filter = {
+    title: document.querySelector("#filter-title").value,
+    tags: []
+  }
   chrome.tabs.sendMessage(activeTab.id, {
     msg: "MSG_CONVERSATIONS"
   },
     (data) => {
       updateTagsList();
-      manageConversations(data);
+      updateTagsFilters();
+      manageConversations(data, filter);
     });
 }
 
@@ -65,15 +81,46 @@ async function loadChat(title) {
   });
 }
 
+function sortChats(chars) {
+  return chars.sort((a, b) => {
+    if (a.innerText < b.innerText) return -1;
+    if (a.innerText > b.innerText) return 1;
+    return 0;
+  });
+}
+
 /**
  * Create the list of conversations
  */
-async function manageConversations(chats = []) {
+async function manageConversations(chats = [], filter) {
+  if (!filter) filter = { title: "" };
   const conversations = document.querySelector("#conversations");
-  while (conversations.firstChild)
-    conversations.removeChild(conversations.firstChild);
+  while (conversations.firstChild) conversations.removeChild(conversations.firstChild);
 
-  chats.forEach(async element => {
+  if (chats.length === 0) {
+    conversations.innerHTML = '<div class="error">No conversations found.</div>';
+    return;
+  }
+
+  chats = sortChats(chats);
+  const sTags = await getTags();
+  const sChats = await getChats();
+  const filterTags = await getFilterTags();
+  chats.filter(chat => {
+    const text = chat.innerText.toLowerCase();
+    const includesText = text.includes(filter.title.toLowerCase());
+    if (filterTags.length > 0) {
+      const ch = sChats.find(c => c.id === chat.href.split("https://chat.openai.com/")[1]);
+      if (ch) {
+        const tag = sTags.find(tag => tag.id === ch.tag);
+        if (tag) {
+          return !(!includesText || !filterTags.includes(tag.id));
+        }
+      }
+      return false;
+    }
+    return !(!includesText);
+  }).forEach(async element => {
     // Chat block
     const id = element.href.split("https://chat.openai.com/")[1];
     const chatContainer = document.createElement("div");
@@ -83,8 +130,7 @@ async function manageConversations(chats = []) {
     const chatTagSelectOption = document.createElement("option");
     chatTagSelectOption.innerText = "Select a tag";
     chatTagSelect.appendChild(chatTagSelectOption);
-    const tags = await getTags();
-    tags.forEach(tag => {
+    sTags.forEach(tag => {
       const chatTagSelectOption = document.createElement("option");
       chatTagSelectOption.innerText = tag.value;
       chatTagSelectOption.style.backgroundColor = tag.color;
@@ -92,11 +138,9 @@ async function manageConversations(chats = []) {
     });
 
     // Select the option if the chat has a tag
-    const chats = await getChats();
-    const chat = chats.find(chat => chat.id === id);
+    const chat = sChats.find(chat => chat.id === id);
     if (chat) {
-      const tags = await getTags();
-      const chatTagSelected = tags.find(tag => tag.id === chat.tag);
+      const chatTagSelected = sTags.find(tag => tag.id === chat.tag);
       if (chatTagSelected) {
         chatTagSelect.value = chatTagSelected.value;
         chatTagSelect.style.backgroundColor = chatTagSelected.color;
@@ -186,17 +230,68 @@ function updateTagsList() {
   });
 }
 
+async function updateTagsFilters() {
+  const tagsList = document.querySelector("#filter-tags");
+  while (tagsList.firstChild)
+    tagsList.removeChild(tagsList.firstChild);
+  const currentFilterTags = await getFilterTags();
+  chrome.storage.sync.get("tags", function (data) {
+    const tags = data.tags || [];
+    tags.forEach(tag => {
+      const tagElement = document.createElement("div");
+      tagElement.className = "tagBlock tagFilter"
+
+      if (currentFilterTags.includes(tag.id)) tagElement.classList.add("tagFilterSelected");
+      const tagColor = document.createElement("span");
+      tagColor.innerText = " ";
+      tagColor.style.backgroundColor = tag.color;
+      tagColor.className = "tagColor";
+      tagElement.appendChild(tagColor);
+
+      const tagValue = document.createElement("span");
+      tagValue.innerText = tag.value;
+      tagValue.className = "tagValue";
+      tagElement.appendChild(tagValue);
+
+      tagElement.addEventListener("click", () => {
+        const filterTitle = document.querySelector("#filter-title");
+        filterTitle.value = "";
+
+        chrome.storage.sync.get("filter-tags", function (data) {
+
+          if (!data["filter-tags"]) data["filter-tags"] = [];
+          const tags = data["filter-tags"] || [];
+
+          if (tagElement.classList.contains("tagFilterSelected")) {
+            tags.splice(tags.indexOf(tag.id), 1);
+
+          } else {
+            const tagIndex = tags.indexOf(tag.id);
+            if (tagIndex === -1) {
+              tags.push(tag.id);
+            } else {
+              tags.splice(tagIndex, 1);
+            }
+          }
+          chrome.storage.sync.set({ "filter-tags": tags }, refreshLists);
+        });
+      });
+
+      tagsList.appendChild(tagElement)
+    });
+  });
+}
+
 async function deleteTag(id) {
   const tags = await getTags();
   const newTags = tags.filter(tag => tag.id != id);
   chrome.storage.sync.set({ tags: newTags }, function () {
     updateTagsList();
+    updateTagsFilters();
   });
 
   const chats = await getChats();
-  console.log(chats)
   const newChats = chats.filter(chat => chat.tag != id);
-  console.log(newChats)
   chrome.storage.sync.set({ chats: newChats }, refreshLists);
 
 }
@@ -209,4 +304,9 @@ async function getTags() {
 async function getChats() {
   const data = await chrome.storage.sync.get("chats");
   return data.chats || [];
+}
+
+async function getFilterTags() {
+  const data = await chrome.storage.sync.get("filter-tags");
+  return data["filter-tags"] || [];
 }

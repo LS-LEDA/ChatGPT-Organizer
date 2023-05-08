@@ -3,6 +3,11 @@
     const { msg } = obj;
 
     if (msg === "MSG_CONVERSATIONS") {
+      const showMoreButton = document.getElementsByClassName("btn btn-small")[0];
+      if (showMoreButton) {
+        showMoreButton.click();
+      }
+
       const nav = document.getElementsByClassName("overflow-y-auto");
       nav[0].id = "nav";
       let conversations = document.querySelectorAll("#nav .group");
