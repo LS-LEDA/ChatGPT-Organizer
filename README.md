@@ -1,5 +1,5 @@
 # ChatGPT-Organizer
-Extension to manage the conversations with ChatGPT:
+Chrome extension to manage the conversations with ChatGPT:
 
 - Assign tags to each conversation
 - Search by title
