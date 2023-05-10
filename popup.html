@@ -3,8 +3,32 @@
 
 <div class="container">
   <div>
-    <div class="title">ChatGPT Conversations & Tags</div>
+    <h1 class="title">ChatGPT Conversations & Tags</h1>
+    <div class="tagsContainer" id="tagsContainer">
+      <h2 class="subtitle">Create tag</h2>
+      <div class="addTagBlock">
+        <input class="createTag" type="text" id="tag" placeholder="Set new tag name..." />
+        <button class="addTag" id="addTag">Create</button>
+      </div>
 
+      <div id="tags" class="tags"></div>
+    </div>
+
+    <hr />
+    <h2 id="chats-list" class="subtitle">Chats list</h2>
+    <h3>Filters</h3>
+    <div>
+      <input type="text" class="filter-title" id="filter-title" placeholder="Filter by title..." />
+      <button class="btn btn-clear" id="clear-filter-title">x</button>
+      <button class="btn" id="btn-filter-title">Search</button>
+    </div>
+    <div id="filter-tags" class="tags"> </div>
+    <h3>Chats</h3>
     <div class="conversations" id="conversations"></div>
+    <div id="options-buttons" class="optionsButtons">
+      <button class="btn btn-clear" id="btn-clearAll">Clear all data</button>
+      <button class="btn btn-clear" id="btn-clearTags">Clear all assigned tags</button>
+      <button class="btn " id="btn-about">About</button>
+    </div>
   </div>
 </div>
