@@ -151,6 +151,10 @@ body {
   overflow: hidden;
 }
 
+.chatContainer div {
+  cursor: pointer;
+}
+
 .chatTagSelect {
   margin-right: 5px;
 }
